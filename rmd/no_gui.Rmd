@@ -1,0 +1,129 @@
+---
+title: "Analýza citlivosti povodí na změnu klimatu"
+author: "Martin Hanel et al."
+date: "7 února 2018"
+output: html_document
+---
+
+## Úvod
+
+Balík umožňuje posoudit citlivost povodí na změnu klimatu. Citlivost je vyhodnocena jako reakce povodí na změnu průměrných srážek a teploty. Sezónní cyklus změn je uvažován na základě mediánu standardizovaných sezónních změn z CORDEX simulací. Intenzita sezónního cyklu (směrodatná odchylka sezónních změn, která je použita ke zpětnému škálování standardizovaných změn) je dalším z vyhodnocovaných faktorů působících na změnu hydrologických poměrů. Balík umožňuje vyhodnocení změn základních hydrologických veličin i charakteristik virtuálních nádrží umístěných v závěrovém profilu povodí.
+
+## Základní strategie vyhodnocení
+
+Jelikož uvažujeme vliv změn průměrů a směrodatných odchylek srážek a teploty na hydrologické charakteristiky je problém z hlediska vstupů 4dimenzionální. Abychom zrychlili vyhodnocení kombinací vstupů a zároveň za účelem poskytnutí intuitivní vizualizace, probíhá analýza dvěma způsoby:
+
+- pro zadanou průměrnou změnu srážek a teploty se zjišťuje citlivost na změnu intenzity sezónního cyklu změn
+- pro zadanou intenzitu sezónních změn se zjišťuje citlivost na změnu průměrných srážek a teploty
+
+Balík navíc umožňuje vyhodnocení hydrologických dopadů na základě měsíčních změn z projektu CORDEX (změny jsou zprůměrovány pro ČR - tj. prostorová variabilita změn je zanedbána).
+
+## Demonstrace
+
+### Příprava
+
+- Nahrajeme balík a případně ukázková data (nakalibrovaný model Bilan pro povodí LAPV Amerika)
+
+```{r, message=FALSE}
+library(hySens)
+data("amerika")
+amerika
+```
+
+- Nahrajeme měsíční změny srážek a teploty z CORDEX simulací (pro každou dostupnou simulaci, 3 časové horizonty) a 3 scénáře koncentrací uvádí změny měsíčních srážek (`dPR`) a teploty (`dTAS`)
+
+```{r}
+data("delty")
+delty
+```
+
+- statistiky změn (průměrná roční změna srážek (`meanP`) a teploty (`meanT`), a směrodatná odchylka měsíčních změn srážek (`sdP`) a teploty (`sdT`))
+
+```{r}
+data("stat")
+stat
+```
+
+- medián standardizovaného sezónního cyklu změn (standardizace proběhla tak, že pro každou simulaci byl od měsíčních změn odečten jejich průměr a výsledek byl dělen směrodatnou odchylkou měsíčních změn - `cyc` udává medián ze všech simulací)
+
+```{r}
+data(cyc)
+cyc
+```
+
+### Výpočet změn dle CORDEX simulací
+
+- funkce `calc_cordex` vezme jako vstup nakalibrovaný model Bilan s spočte změny dle všech CORDEX simulací pro všechny RCP a časové horizonty
+
+```{r, cache=TRUE}
+res = calc_cordex(amerika)
+res
+```
+
+### Výpočet citlivosti na změnu průměrných srážek a teploty při zadané intenzitě sezónních cyklu změn
+
+- funkce `calc_sens_mean` bere jako vstup nakalibrovaný model Bilan, dalšími argumenty jsou: 
+  - `f`: jako standardní meze pro vyhodnocení citlivosti bere funkce rozsah změn z CORDEX simulací, argument `f` umožňuje tento rozsah zvětšit, či zmenšit, viz `?extendrange`
+  - `samples`: počet vyhodnocovaných bodů podél jednotlivých os 
+  - `sdP` a `sdT` - intenzita sezónního cyklu - výchozí je průměr z CORDEX simulací
+  
+  
+```{r, cache=TRUE}
+mres = calc_sens_mean(amerika)
+mres
+```
+
+
+### Výpočet citlivosti na intenzitu sezónního cyklu změn při zadané změně průměrných srážek a teploty
+
+- funkce `calc_sens_sd`
+  - argumenty jsou obdobné jako u `calc_sens_mean`, s tím že zadáváme 
+  - `meanP` a `meanT` - tj. průměrnou změnu srážek a teploty
+ 
+```{r, cache=TRUE}
+ires = calc_sens_sd(amerika)
+ires
+```
+
+## Vyhodnocení
+
+Základním nástrojem pro vyhodnocení je funkce `stat`, která umožňuje spočítat libovolné statistiky:
+
+```{r}
+dRM = stats(bilan = amerika, MEAN = mres, SD = ires, CORDEX = res, fun = mean, var = 'RM', type = season, diff_type = "multiplicative")
+```
+
+parametry funkce:
+
+- `bilan`: nakalibrovaný model
+- `MEAN`: vyhodnocení citlivosti na změnu průměru
+- `SD`: vyhodnocení citlivosti na změnu intenzity sezónních cyklu změn
+- `CORDEX`: simulace pro scénáře na základě CORDEX simulací
+- `fun`: použitá funkce
+- `var`: použitá proměnná
+- `type`: funkce pro agregaci změn - např. `annual` - roční změny, `season` - sezónní změny, `month` - měsíční změny
+- `diff_type`: mají se změny počítat jako podíl (`multiplicative`) nebo rozdíl (`additive`)?
+
+
+### Změny průměrného průtoku
+
+```{r}
+ggplot(dRM[SENS=="MEAN"]) + geom_tile(aes(x = dX, y = dY, fill = cut(V1, breaks = pretty(V1, 5)) )) + facet_wrap(~SEASON , scale="free") + scale_fill_brewer() + geom_point(aes(x = meanP, y = meanT, col = PER, shape = EXP), data = dRM[SENS=='CORDEX'], size = 2) + scale_color_brewer(palette = 'Dark2')
+
+ggplot(dRM[SENS=="SD"]) + geom_tile(aes(x = dX, y = dY, fill = cut(V1, breaks = pretty(V1, 5)) )) + facet_wrap(~SEASON, scale="free") + scale_fill_brewer()+ geom_point(aes(x = sdP, y = sdT, col = PER, shape = EXP), data = dRM[SENS=='CORDEX'], size = 2) + scale_color_brewer(palette = 'Dark2')
+
+```
+
+### Změny nízkých průtoků (v mm)
+
+
+```{r}
+dRM = stats(bilan = amerika, MEAN = mres, SD = ires, CORDEX = res, fun = function(x)quantile(x, .1), var = 'RM', type = season, diff_type = "additive")
+```
+
+```{r}
+ggplot(dRM[SENS=="MEAN"]) + geom_tile(aes(x = dX, y = dY, fill = cut(V1, breaks = pretty(V1, 5)) )) + facet_wrap(~SEASON , scale="free") + scale_fill_brewer() + geom_point(aes(x = meanP, y = meanT, col = PER, shape = EXP), data = dRM[SENS=='CORDEX'], size = 2) + scale_color_brewer(palette = 'Dark2')
+
+ggplot(dRM[SENS=="SD"]) + geom_tile(aes(x = dX, y = dY, fill = cut(V1, breaks = pretty(V1, 5)) )) + facet_wrap(~SEASON, scale="free") + scale_fill_brewer()+ geom_point(aes(x = sdP, y = sdT, col = PER, shape = EXP), data = dRM[SENS=='CORDEX'], size = 2) + scale_color_brewer(palette = 'Dark2')
+
+```
