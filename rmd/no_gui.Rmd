@@ -90,7 +90,7 @@ ires
 Základním nástrojem pro vyhodnocení je funkce `stat`, která umožňuje spočítat libovolné statistiky:
 
 ```{r}
-dRM = stats(bilan = amerika, MEAN = mres, SD = ires, CORDEX = res, fun = mean, var = 'RM', type = season, diff_type = "multiplicative")
+dRM = stats(MEAN = mres, SD = ires, CORDEX = res, fun = mean, var = 'RM', type = season, diff_type = "multiplicative")
 ```
 
 parametry funkce:
