@@ -189,3 +189,6 @@ stats = function(MEAN, SD, CORDEX, fun = mean, var = 'RM', type = annual, diff_t
   resul = rbindlist(list(MEAN = mr, SD = sr, CORDEX = cres), fill = TRUE, idcol = "SENS")
   resul
 }
+
+library(RColorBrewer)
+mycol = colorRampPalette(brewer.pal(name="Blues", n=9))(20) #rozsirena skala odstinu pro vysledne grafy
