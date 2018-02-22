@@ -12,6 +12,7 @@ LazyData: false
 Depends:
    bilan,
    ggplot2,
-   data.table
+   data.table,
+   wateres
 Imports:
    data.table
